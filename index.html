@@ -3,48 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DEATH NOTE: OVERKILL 3D</title>
+    <title>DEATH NOTE: MODO DIA</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
-        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; touch-action: none; font-family: sans-serif; }
+        canvas { display: block; position: fixed; top: 0; left: 0; z-index: 5; }
         
-        /* Contador pequeno no canto direito superior */
-        #timer-display { 
-            position: fixed; 
-            top: 5px; 
-            right: 10px; 
-            color: rgba(255, 255, 255, 0.5); 
-            font-size: 10px; 
-            z-index: 500; 
-            font-family: monospace;
+        /* Contador e Botão de Tela Cheia */
+        #top-right-ui { 
+            position: fixed; top: 10px; right: 10px; 
+            z-index: 1000; text-align: right; 
+        }
+        #timer-display { color: #000; font-size: 12px; font-weight: bold; margin-bottom: 5px; }
+        #fs-btn { 
+            background: rgba(0,0,0,0.5); color: white; border: 1px solid white; 
+            padding: 5px 10px; font-size: 10px; border-radius: 4px; cursor: pointer;
         }
 
         #loading-screen { 
-            position: fixed; 
-            top: 0; left: 0; width: 100%; height: 100%; 
-            background: #000; color: white; 
-            display: flex; align-items: center; justify-content: center; 
-            z-index: 1000; 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #fff; color: #000; display: flex; 
+            flex-direction: column; align-items: center; justify-content: center; z-index: 2000; 
         }
 
-        #ui { position: fixed; top: 10px; left: 10px; color: white; z-index: 100; pointer-events: none; }
-        .label { position: absolute; color: white; background: rgba(0,0,0,0.6); padding: 2px 6px; border-radius: 4px; font-size: 12px; transform: translate(-50%, -100%); z-index: 50; border: 1px solid #f00; }
+        /* Interface do Jogo */
+        #ui { position: fixed; top: 10px; left: 10px; color: #000; z-index: 100; pointer-events: none; font-weight: bold; }
+        .label { position: absolute; color: white; background: rgba(0,0,0,0.7); padding: 2px 6px; border-radius: 4px; font-size: 12px; transform: translate(-50%, -100%); z-index: 50; border: 1px solid #fff; }
 
         /* Controles */
-        #joy-base { position: fixed; bottom: 30px; left: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 200; border: 1px solid #fff; }
+        #joy-base { position: fixed; bottom: 30px; left: 30px; width: 100px; height: 100px; background: rgba(0,0,0,0.1); border-radius: 50%; z-index: 200; border: 2px solid #000; }
         #joy-knob { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; background: #f00; border-radius: 50%; transform: translate(-50%, -50%); }
-        #btn-kill { position: fixed; bottom: 30px; right: 30px; width: 80px; height: 80px; background: #600; border: 2px solid #fff; border-radius: 50%; color: white; z-index: 200; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; }
+        #btn-kill { position: fixed; bottom: 30px; right: 30px; width: 80px; height: 80px; background: #900; border: 2px solid #fff; border-radius: 50%; color: white; z-index: 200; display: flex; align-items: center; justify-content: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="timer-display">CARREGANDO...</div>
-<div id="loading-screen">INICIALIZANDO MAPA 3D...</div>
-
-<div id="ui">
-    <b style="color:red">KIRA MODE</b>
+<div id="loading-screen">
+    <h2>INICIANDO JOGO...</h2>
+    <p>Prepare-se para entrar no mapa</p>
 </div>
+
+<div id="top-right-ui">
+    <div id="timer-display">CARREGANDO...</div>
+    <button id="fs-btn" onclick="toggleFS()">TELA CHEIA [ ]</button>
+</div>
+
+<div id="ui">KIRA: BUSCANDO L</div>
 
 <div id="joy-base"><div id="joy-knob"></div></div>
 <div id="btn-kill">MATAR</div>
@@ -52,81 +56,95 @@
 <script>
 let scene, camera, renderer, player, clock;
 let moveForward = 0, moveRight = 0;
-let yaw = 0, pitch = 0.5;
+let yaw = 0, pitch = 0.6;
 let npcs = [];
 let rotTouch = { id: -1, x: 0, y: 0 };
-let loadTime = 5; // Tempo de espera em segundos
+let loadTime = 6;
 
-// Função do Contador Regressivo
+// Tela Cheia
+function toggleFS() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+        document.getElementById('fs-btn').innerText = "SAIR TELA CHEIA";
+    } else {
+        document.exitFullscreen();
+        document.getElementById('fs-btn').innerText = "TELA CHEIA [ ]";
+    }
+}
+
+// Contador
 const timerInterval = setInterval(() => {
     loadTime--;
-    document.getElementById('timer-display').innerText = "3D OPEN IN: " + loadTime + "s";
+    document.getElementById('timer-display').innerText = "MOTOR 3D EM: " + loadTime + "s";
     if (loadTime <= 0) {
         clearInterval(timerInterval);
         document.getElementById('loading-screen').style.display = 'none';
-        document.getElementById('timer-display').innerText = "LIVE 3D";
+        document.getElementById('timer-display').innerText = "MODO DIA ATIVO";
     }
 }, 1000);
 
 function init() {
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050505);
-    scene.fog = new THREE.FogExp2(0x050505, 0.05);
-
+    scene.background = new THREE.Color(0x87CEEB); // Azul Céu (Dia)
+    
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
     clock = new THREE.Clock();
 
-    scene.add(new THREE.AmbientLight(0x444444));
-    let light = new THREE.PointLight(0xff0000, 1, 50);
-    light.position.set(0, 10, 0);
-    scene.add(light);
+    // Luz do Dia (Sol)
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
+    scene.add(hemiLight);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    sunLight.position.set(50, 100, 50);
+    scene.add(sunLight);
 
-    // Chão
-    let floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshPhongMaterial({color: 0x111111}));
+    // Chão Cinza Claro
+    let floor = new THREE.Mesh(new THREE.PlaneGeometry(300, 300), new THREE.MeshPhongMaterial({color: 0x999999}));
     floor.rotation.x = -Math.PI/2;
     scene.add(floor);
 
-    // MAPA (Prédios, Museu, Casinhas)
-    const addBox = (x, z, w, h, d, col) => {
+    // MAPA DO DESENHO
+    const addBuilding = (x, z, w, h, d, col) => {
         let b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshPhongMaterial({color: col}));
         b.position.set(x, h/2, z);
         scene.add(b);
     };
 
-    addBox(-15, -15, 6, 25, 6, 0x1a1a1a); // PRE
-    addBox(0, -15, 6, 30, 6, 0x1a1a1a);  // PRE
-    addBox(15, -15, 6, 25, 6, 0x1a1a1a); // PRE
-    addBox(-10, 15, 12, 12, 10, 0x333333); // MUSEU
-    
-    // CASAS (CA) Canto direito
+    // Prédios (PRE) - Agora visíveis no claro
+    addBuilding(-20, -20, 10, 30, 10, 0x555555);
+    addBuilding(0, -20, 10, 40, 10, 0x666666);
+    addBuilding(20, -20, 10, 30, 10, 0x555555);
+    addBuilding(-15, 20, 15, 15, 12, 0x777777); // MUSEU
+
+    // CASAS (CA) - Pequenas no canto
     for(let i=0; i<2; i++) {
-        for(let j=0; j<3; j++) { addBox(15 + j*4, 15 + i*5, 3, 3, 3, 0x222222); }
+        for(let j=0; j<4; j++) { 
+            addBuilding(15 + j*5, 15 + i*6, 4, 5, 4, 0x885555); 
+        }
     }
 
-    // Player
+    // Player (Azul)
     player = new THREE.Group();
-    let body = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.8), new THREE.MeshPhongMaterial({color: 0x0000ff}));
-    body.position.y = 0.8;
-    player.add(body);
+    let pBody = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1), new THREE.MeshPhongMaterial({color: 0x0000ff}));
+    pBody.position.y = 1;
+    player.add(pBody);
     scene.add(player);
 
-    createNPC("L", 0, 5, 0xffff00, true);
+    createNPC("L", 0, 10, 0xffcc00, true);
     setupControls();
     animate();
 }
 
 function createNPC(name, x, z, col, isL) {
     let g = new THREE.Group();
-    let b = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 0.8), new THREE.MeshPhongMaterial({color: col}));
-    b.position.y = 0.8;
-    g.add(b);
+    let b = new THREE.Mesh(new THREE.CapsuleGeometry(0.5, 1), new THREE.MeshPhongMaterial({color: col}));
+    b.position.y = 1; g.add(b);
 
     if(isL) {
-        let r = new THREE.Mesh(new THREE.RingGeometry(10.4, 10.6, 32), new THREE.MeshBasicMaterial({color: 0xff0000, side: THREE.DoubleSide}));
-        r.rotation.x = Math.PI/2; r.position.y = 0.05; g.add(r);
+        let ring = new THREE.Mesh(new THREE.RingGeometry(10.4, 10.6, 64), new THREE.MeshBasicMaterial({color: 0xff0000, side: THREE.DoubleSide}));
+        ring.rotation.x = Math.PI/2; ring.position.y = 0.1; g.add(ring);
     }
     g.position.set(x, 0, z);
     scene.add(g);
@@ -170,8 +188,8 @@ function setupControls() {
         for(let i=0; i<e.touches.length; i++) {
             let t = e.touches[i];
             if(t.identifier === rotTouch.id) {
-                yaw -= (t.clientX - rotTouch.x) * 0.007;
-                pitch = Math.max(0.2, Math.min(1.2, pitch + (t.clientY - rotTouch.y) * 0.005));
+                yaw -= (t.clientX - rotTouch.x) * 0.008;
+                pitch = Math.max(0.1, Math.min(1.3, pitch + (t.clientY - rotTouch.y) * 0.006));
                 rotTouch.x = t.clientX; rotTouch.y = t.clientY;
             }
         }
@@ -181,11 +199,11 @@ function setupControls() {
 function animate() {
     requestAnimationFrame(animate);
     if(moveForward || moveRight) {
-        player.position.x += (Math.cos(yaw) * moveRight + Math.sin(yaw) * moveForward) * 0.15;
-        player.position.z += (Math.sin(yaw) * moveRight - Math.cos(yaw) * moveForward) * 0.15;
+        player.position.x += (Math.cos(yaw) * moveRight + Math.sin(yaw) * moveForward) * 0.25;
+        player.position.z += (Math.sin(yaw) * moveRight - Math.cos(yaw) * moveForward) * 0.25;
         player.rotation.y = yaw;
     }
-    let d = 8;
+    let d = 12; // Câmera um pouco mais longe para visão melhor
     camera.position.set(
         player.position.x + Math.sin(yaw) * d * Math.cos(pitch),
         player.position.y + Math.sin(pitch) * d,
@@ -195,7 +213,7 @@ function animate() {
 
     npcs.forEach(n => {
         let l = document.getElementById('label-' + n.name);
-        let v = n.mesh.position.clone().add(new THREE.Vector3(0, 1.8, 0));
+        let v = n.mesh.position.clone().add(new THREE.Vector3(0, 2, 0));
         v.project(camera);
         l.style.left = (v.x * 0.5 + 0.5) * window.innerWidth + 'px';
         l.style.top = (-(v.y * 0.5) + 0.5) * window.innerHeight + 'px';
@@ -203,6 +221,12 @@ function animate() {
     });
     renderer.render(scene, camera);
 }
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
 window.onload = init;
 </script>
